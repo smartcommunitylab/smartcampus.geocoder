@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:oauth="http://www.springframework.org/schema/security/oauth2"
+	xmlns:sec="http://www.springframework.org/schema/security" xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:util="http://www.springframework.org/schema/util"
+	xsi:schemaLocation="http://www.springframework.org/schema/security/oauth2 http://www.springframework.org/schema/security/spring-security-oauth2-1.0.xsd
+http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc-3.1.xsd
+http://www.springframework.org/schema/security http://www.springframework.org/schema/security/spring-security-3.1.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.1.xsd
+http://www.springframework.org/schema/context
+http://www.springframework.org/schema/context/spring-context-3.1.xsd
+http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util-3.1.xsd
+">
+
+
+	<http pattern="/collection1/select" create-session="never"
+		entry-point-ref="oauthAuthenticationEntryPoint" xmlns="http://www.springframework.org/schema/security"
+		authentication-manager-ref="resourceAuthenticationManager">
+		<anonymous enabled="false" />
+		<sec:intercept-url pattern="/collection1/select"
+			access="IS_AUTHENTICATED_FULLY" />
+		<custom-filter ref="resourceFilter" before="PRE_AUTH_FILTER" />
+		<access-denied-handler ref="oauthAccessDeniedHandler" />
+	</http>
+
+	<sec:http pattern="/collection1/**"
+		authentication-manager-ref="basic-auth">
+		<sec:http-basic />
+		<sec:intercept-url pattern="/collection1/update"
+			access="ROLE_UPDATER" />
+		<sec:intercept-url pattern="/admin.html" access="ROLE_ADMIN" />
+		<sec:intercept-url pattern="/collection1/admin/**"
+			access="ROLE_ADMIN" />
+	</sec:http>
+
+
+	<!-- BASIC AUTHENTICATION -->
+
+	<sec:authentication-manager id="basic-auth">
+		<sec:authentication-provider>
+			<sec:user-service>
+				<sec:user name="updater" password="scGeo44" authorities="ROLE_UPDATER" />
+				<sec:user name="admin" password="solr32admin" authorities="ROLE_ADMIN" />
+			</sec:user-service>
+		</sec:authentication-provider>
+	</sec:authentication-manager>
+
+	<!-- OAUTH authentication -->
+
+	<bean id="oauthAuthenticationEntryPoint"
+		class="org.springframework.security.oauth2.provider.error.OAuth2AuthenticationEntryPoint" />
+	<bean id="oauthAccessDeniedHandler"
+		class="org.springframework.security.oauth2.provider.error.OAuth2AccessDeniedHandler" />
+
+	<bean id="resourceFilter"
+		class="eu.trentorise.smartcampus.resourceprovider.filter.ResourceFilter">
+		<property name="authenticationManager" ref="resourceAuthenticationManager" />
+	</bean>
+
+	<bean id="tokenStore"
+		class="org.springframework.security.oauth2.provider.token.JdbcTokenStore">
+		<constructor-arg ref="dataSource" />
+	</bean>
+
+	<bean id="dataSource" destroy-method="close"
+		class="org.apache.commons.dbcp.BasicDataSource">
+		<property name="driverClassName" value="${jdbc.driver}" />
+		<property name="url" value="${jdbc.url}" />
+		<property name="username" value="${jdbc.user}" />
+		<property name="password" value="${jdbc.password}" />
+	</bean>
+
+
+	<bean id="resourceAuthenticationManager"
+		class="eu.trentorise.smartcampus.resourceprovider.filter.ResourceAuthenticationManager">
+		<property name="tokenStore" ref="tokenStore" />
+		<property name="authServices" ref="authServices" />
+	</bean>
+
+	<bean id="authServices"
+		class="eu.trentorise.smartcampus.resourceprovider.jdbc.JdbcServices">
+		<constructor-arg ref="dataSource" />
+	</bean>
+
+	<mvc:annotation-driven />
+
+	<context:component-scan base-package="eu.trentorise.smartcampus.resourceprovider" />
+
+	<context:property-placeholder location="classpath:geocoder.properties" />
+
+</beans>
