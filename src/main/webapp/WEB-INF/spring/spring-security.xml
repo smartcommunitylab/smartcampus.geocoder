@@ -40,8 +40,9 @@ http://www.springframework.org/schema/util http://www.springframework.org/schema
 	<sec:authentication-manager id="basic-auth">
 		<sec:authentication-provider>
 			<sec:user-service>
-				<sec:user name="updater" password="scGeo44" authorities="ROLE_UPDATER" />
-				<sec:user name="admin" password="solr32admin" authorities="ROLE_ADMIN" />
+			    <!-- INSERT THE USERS CREDENTIALS -->
+				<sec:user name="" password="" authorities="ROLE_UPDATER" />
+				<sec:user name="" password="" authorities="ROLE_ADMIN" />
 			</sec:user-service>
 		</sec:authentication-provider>
 	</sec:authentication-manager>
