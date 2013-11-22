@@ -25,4 +25,8 @@
     http://www.springframework.org/schema/security 
     http://www.springframework.org/schema/security/spring-security-3.1.xsd">
 
+	<mvc:annotation-driven />
+
+	<context:component-scan base-package="eu.trentorise.smartcampus" />
+
 </beans>
