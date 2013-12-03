@@ -6,14 +6,30 @@ var defaultZoom = 15;
 var map = new OpenLayers.Map('map');
 var resultsLayer = new OpenLayers.Layer.Markers("results");
 var positionLayer = new OpenLayers.Layer.Markers("position");
+var bufferLayer = new OpenLayers.Layer.Vector("buffer_distance");
 
 var poiProjection =  new OpenLayers.Projection("EPSG:4326"); // WGS 84
 var mapProjection = new OpenLayers.Projection("EPSG:900913"); // to Spherical
 																// Mercator
 																// Projection
 
+var bufferFid;
+
 function init() {
 	initMap();
+	
+	$('#interest_radius').change(function(){
+		var buffer = bufferLayer.getFeatureByFid(bufferFid);
+		bufferLayer.removeAllFeatures();
+		 var circle = OpenLayers.Geometry.Polygon.createRegularPolygon(
+				    buffer.geometry.getCentroid(),
+				    $('#interest_radius').val(),
+				    50,0
+				);
+				var feature = new OpenLayers.Feature.Vector(circle);
+				bufferFid = feature.fid;
+		bufferLayer.addFeatures([feature]);
+	});
 	
 	$('#bmypos').click(function(){
 		map.events.register('click',map,function(e){
@@ -23,7 +39,33 @@ function init() {
 			 var icon = OpenLayers.Icon('/img/demo/positionMarker.png', size, offset);
 			 var positionMarker = new OpenLayers.Marker(lonlat,icon);
 			 positionLayer.addMarker(positionMarker);
-			 
+			 var circle = OpenLayers.Geometry.Polygon.createRegularPolygon(
+					    new OpenLayers.Geometry.Point(lonlat.lon, lonlat.lat),
+					    $('#interest_radius').val(),
+					    50,0
+					);
+					var feature = new OpenLayers.Feature.Vector(circle);
+					bufferFid = feature.fid;
+					bufferLayer.addFeatures([feature]);
+					
+					map.events.remove('click');
+					$('#bmypos').attr('disabled','');
+					$('#mypos_coords').text("Current position is ");
+					var zoomToPosition = $('<a>');
+					zoomToPosition.text(lonlat.lat+","+lonlat.lon);
+					zoomToPosition.click(function(){
+						map.moveTo(lonlat,defaultZoom);
+					});
+
+					var removeLink = $('<a>');
+					removeLink.text('delete');
+					removeLink.click(function(){
+						bufferLayer.removeAllFeatures();
+						positionLayer.clearMarkers();
+						$('#mypos_coords').empty();
+						$('#bmypos').removeAttr('disabled');
+					});
+					$('#mypos_coords').append(zoomToPosition).append(" (").append(removeLink).append(")");
 		},false);
 	});
 	$('#bsearch')
@@ -122,12 +164,6 @@ if (evt.which == 13) {
 function popolateMap(poi) {
 	console.log('marker pos: '+poi['coordinate']);
 	var coords = poi['coordinate'].split(',');
-// console.log('pos: '+coords[0]);
-// var size = new OpenLayers.Size(21,25);
-// var offset = new OpenLayers.Pixel(-(size.w/2), -size.h);
-// var icon = new
-// OpenLayers.Icon('http://www.openlayers.org/dev/img/marker.png', size,
-// offset);
 	var position = new OpenLayers.LonLat(coords[1],coords[0]).transform( poiProjection, mapProjection);
 	
 	var marker = new OpenLayers.Marker(position,OpenLayers.Marker.defaultIcon());
@@ -161,14 +197,9 @@ function markerPopup(marker) {
 	return details;
 }
 function initMap(){
-	map = new OpenLayers.Map('map');
+	map = new OpenLayers.Map('map',{unit:'m'});
 	var mapnik         = new OpenLayers.Layer.OSM('osm-background');
     var position       = new OpenLayers.LonLat(mapCenter).transform( poiProjection, mapProjection);
-    map.addLayer(mapnik);
-    // add results layer
-//    resultsLayer = new OpenLayers.Layer.Markers("results");
-    map.addLayer(resultsLayer);
-    //add position layer
-    map.addLayer(positionLayer);
+    map.addLayers([mapnik,positionLayer,bufferLayer,resultsLayer]);
     map.setCenter(position, defaultZoom);
 }
