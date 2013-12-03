@@ -3,124 +3,41 @@
 <head>
 <link href="css/demo/bootstrap.min.css" rel="stylesheet">
 <link href="css/demo/bootstrap-theme.min.css" rel="stylesheet">
+<link href="css/demo/ol/theme/default/style.css" rel="stylesheet">
 
-<style type="text/css">
-body {
-	padding-top: 60px;
-	padding-bottom: 40px;
-}
-</style>
+<link href="css/demo/demo.css" rel="stylesheet">
 
 <title>Geocoder Demo Page</title>
 </head>
 <body>
 	<script src="js/demo/lib/jquery-1.10.2.min.js"></script>
 	<script src="js/demo/lib/bootstrap.min.js"></script>
-	<script>
-		$(document)
-				.ready(
-						function() {
-							$('#bsearch')
-									.click(
-											function() {
-												var baseurl = 'http://localhost:8080/core.geocoder/collection1/select';
-												var input = $('#search-field')
-														.val();
-												var token = input.split(',');
-												var subtoken = token[0]
-														.split(' ');
-												var querystring = '?q=';
-												if (token[0].trim().length == 0) {
-													console.log('Empty research');
-												} else {
-													$
-															.each(
-																	subtoken,
-																	function(k,
-																			v) {
-																		querystring += encodeURIComponent('+name:'
-																				+ v
-																						.trim()
-																				+ ' ');
-																	});
-												}
-												if (token.length == 3
-														&& token[1].trim().length > 0) {
-													querystring += encodeURIComponent(' +housenumber:'
-															+ token[1].trim());
-												}
-
-												if (token.length == 2
-														&& token[1]
-														&& token[1].trim().length > 0) {
-													querystring += encodeURIComponent(' +city:'
-															+ token[1].trim());
-												}
-												if (token.length == 3
-														&& token[2]
-														&& token[2].trim().length > 0) {
-													querystring += encodeURIComponent(' +city:'
-															+ token[2].trim());
-												}
-												querystring += '&wt=json&indent=true';
-												console.log(querystring);
-												$
-														.ajax({
-															async : true,
-															type : 'GET',
-															headers : {},
-															url : baseurl
-																	+ querystring,
-
-															success : function(
-																	data,
-																	textStatus,
-																	errorThrown) {
-																$('#display')
-																		.text(
-																				JSON
-																						.stringify(
-																								data,
-																								null,
-																								2));
-															},
-															error : function(
-																	jqXHR,
-																	textStatus,
-																	errorThrown) {
-																alert('Error during operation: '
-																		+ textStatus
-																		+ ' '
-																		+ errorThrown);
-															}
-														});
-											});
-							$('#search-field').keypress(function(evt) {
-								if (evt.which == 13) {
-									$('#bsearch').click();
-								}
-							});
-
-						});
+	<script src="js/demo/lib/ol/OpenLayers.js"></script>
+	<script src="js/demo/demo.js"></script>
+	<script type="text/javascript">
+		$(function(){init()});
 	</script>
+	
 	<div class="container">
 		<div class="hero-unit">
 			<input id="search-field" type="text" style="width: 80%; height: 3em;" />
 			<button id="bsearch" style="width: 15%; height: 3em;">search</button>
 		</div>
-		<div style="margin-top: 2em;">
-		   Research example:
-		   <ul>
-		   <li>Castel buoncons <-- research only a name</li>
-		   <li>via einaudi,trento <-- research a name in a city</li>
-		   <li>via einaudi,35,trento <-- research a complete address</li>
-		   </ul>
+		<div class="layout">
+		<button id="bmypos"><img src="img/demo/positionMarker.png" />my position</button></div>
+		<div class="layout">
+			Research example:
+			<ul>
+				<li>Castel buoncons <-- research only a name</li>
+				<li>via einaudi,trento <-- research a name in a city</li>
+				<li>via einaudi,35,trento <-- research a complete address</li>
+			</ul>
 		</div>
-		<div style="margin-top: 2em;">
+			<div id="map" class="layout"></div>
+		<div class="layout">
 			<pre>
 				<code id="display"></code>
 			</pre>
 		</div>
-	</div>
 </body>
 </html>
