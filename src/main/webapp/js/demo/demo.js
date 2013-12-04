@@ -1,7 +1,7 @@
 var baseurl = 'http://localhost:8080/core.geocoder/collection1/select';
 var mapCenter = [ 11.119885, 46.071832 ];
 var defaultZoom = 15;
-var defaultInterestRadius = 60;
+var defaultInterestRadius = 100;
 var spatialField = 'coordinate';
 
 var map = new OpenLayers.Map('map');
@@ -23,21 +23,16 @@ function init() {
 
 	// dev mode
 	$('#search-field').val("piazza Dante,trento");
+
 	$('#interest_radius').val(defaultInterestRadius);
-	$('#interest_radius').change(
-			function() {
-				var buffer = bufferLayer.getFeatureByFid(bufferFid);
-				bufferLayer.removeAllFeatures();
-				var circle = OpenLayers.Geometry.Polygon.createRegularPolygon(
-						buffer.geometry.getCentroid(), $('#interest_radius')
-								.val(), 50, 0);
-				var feature = new OpenLayers.Feature.Vector(circle);
-				bufferFid = feature.fid;
-				bufferLayer.addFeatures([ feature ]);
-				
-				map.zoomToExtent(bufferLayer
-						.getDataExtent());
-			});
+	$('#interest_radius').spinner({
+		min : 0,
+		step : 100,
+		numberFormat : 'n',
+		stop : function(event, ui) {
+			refreshBuffer();
+		}
+	});
 
 	$('#bmypos').click(
 			function() {
@@ -59,9 +54,8 @@ function init() {
 					var feature = new OpenLayers.Feature.Vector(circle);
 					bufferFid = feature.fid;
 					bufferLayer.addFeatures([ feature ]);
-					
-					map.zoomToExtent(bufferLayer
-							.getDataExtent());
+
+					map.zoomToExtent(bufferLayer.getDataExtent());
 
 					map.events.remove('click');
 					$('#bmypos').attr('disabled', '');
@@ -149,7 +143,7 @@ function init() {
 										});
 								$('#display').text(
 										JSON.stringify(data, null, 2));
-								
+
 								$('#results').text("Element founded: ");
 								var numFound = $('<span>');
 								numFound.addClass('badge');
@@ -197,6 +191,21 @@ function popolateMap(poi) {
 	});
 
 	resultsLayer.addMarker(marker);
+}
+
+function refreshBuffer() {
+	var buffer = bufferLayer.getFeatureByFid(bufferFid);
+	if (buffer && $.isNumeric($('#interest_radius').val())) {
+		bufferLayer.removeAllFeatures();
+		var circle = OpenLayers.Geometry.Polygon.createRegularPolygon(
+				buffer.geometry.getCentroid(), $('#interest_radius').val(), 50,
+				0);
+		var feature = new OpenLayers.Feature.Vector(circle);
+		bufferFid = feature.fid;
+		bufferLayer.addFeatures([ feature ]);
+
+		map.zoomToExtent(bufferLayer.getDataExtent());
+	}
 }
 
 function markerPopup(marker) {
