@@ -149,7 +149,12 @@ function init() {
 										});
 								$('#display').text(
 										JSON.stringify(data, null, 2));
-
+								
+								$('#results').text("Element founded: ");
+								var numFound = $('<span>');
+								numFound.addClass('badge');
+								numFound.text(data['response']['numFound']);
+								$('#results').append(numFound);
 								// set map extent to include all the results
 								if (data['response']['numFound'] > 0) {
 									map.zoomToExtent(resultsLayer
