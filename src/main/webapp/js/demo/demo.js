@@ -21,9 +21,6 @@ var positionMarker;
 function init() {
 	initMap();
 
-	// dev mode
-	$('#search-field').val("piazza Dante,trento");
-
 	$('#interest_radius').val(defaultInterestRadius);
 	$('#interest_radius').spinner({
 		min : 0,
@@ -41,10 +38,9 @@ function init() {
 					var lonlat = map.getLonLatFromPixel(e.xy);
 					var size = new OpenLayers.Size(32, 32);
 					var offset = new OpenLayers.Pixel(-(size.w / 2), -size.h);
-
-					var icon = OpenLayers.Icon('/img/demo/positionMarker.png',
+					var i = new OpenLayers.Icon('img/demo/positionMarker.png',
 							size, offset);
-					positionMarker = new OpenLayers.Marker(lonlat, icon);
+					positionMarker = new OpenLayers.Marker(lonlat,i);
 					positionLayer.addMarker(positionMarker);
 					var circle = OpenLayers.Geometry.Polygon
 							.createRegularPolygon(
@@ -82,7 +78,7 @@ function init() {
 	$('#bsearch')
 			.click(
 					function() {
-
+						
 						var input = $('#search-field').val();
 						var token = input.split(',');
 						var subtoken = token[0].split(' ');
@@ -133,7 +129,11 @@ function init() {
 							url : baseurl + querystring,
 
 							success : function(data, textStatus, errorThrown) {
-
+								//clean all popups
+								$.each(map.popups, function(k, v) {
+									map.removePopup(v);
+								});
+								
 								// clean map
 								resultsLayer.clearMarkers();
 								// display marker in map
