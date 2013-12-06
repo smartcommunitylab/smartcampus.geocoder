@@ -1,4 +1,5 @@
 var baseurl = 'http://localhost:8080/core.geocoder/collection1/select';
+
 var mapCenter = [ 11.119885, 46.071832 ];
 var defaultZoom = 15;
 var defaultInterestRadius = 100;
@@ -86,10 +87,15 @@ function init() {
 						if (token[0].trim().length == 0) {
 							console.log('Empty research');
 						} else {
+							var queryOnName = 'name:(';
+							var queryOnStreet = 'street:(';
 							$.each(subtoken, function(k, v) {
-								querystring += encodeURIComponent('+name:'
-										+ v.trim() + ' ');
+								queryOnName += ' +' +v.trim();
+								queryOnStreet += ' +' +v.trim();
 							});
+							queryOnName +=')';
+							queryOnStreet +=')';
+							querystring += encodeURIComponent('+('+queryOnName+' OR '+queryOnStreet+')');
 						}
 						if (token.length == 3 && token[1].trim().length > 0) {
 							querystring += encodeURIComponent(' +housenumber:'
@@ -98,8 +104,13 @@ function init() {
 
 						if (token.length == 2 && token[1]
 								&& token[1].trim().length > 0) {
+							if($.isNumeric(token[1].trim())){
+								querystring += encodeURIComponent(' +housenumber:'
+										+ token[1].trim());
+							}else{
 							querystring += encodeURIComponent(' +city:'
 									+ token[1].trim());
+							}
 						}
 						if (token.length == 3 && token[2]
 								&& token[2].trim().length > 0) {
@@ -121,7 +132,7 @@ function init() {
 									+ "&d="
 									+ ($('#interest_radius').val() / 1000);
 						}
-						// console.log(querystring);
+						console.log(querystring);
 						$.ajax({
 							async : true,
 							type : 'GET',
