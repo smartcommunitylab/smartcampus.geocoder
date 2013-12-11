@@ -28,5 +28,7 @@
 	<mvc:annotation-driven />
 
 	<context:component-scan base-package="eu.trentorise.smartcampus" />
+	
+	<context:property-placeholder location="classpath:geocoder.properties" />
 
 </beans>

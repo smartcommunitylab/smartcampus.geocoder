@@ -1,4 +1,4 @@
-package eu.trentorise.smartcampus;
+package eu.trentorise.smartcampus.geocoder.rest;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PathVariable;
