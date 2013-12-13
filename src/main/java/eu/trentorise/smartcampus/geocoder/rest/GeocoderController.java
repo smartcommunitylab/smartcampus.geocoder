@@ -9,7 +9,6 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
 
 import eu.trentorise.smartcampus.geocoder.manager.OSMGeocoder;
 import eu.trentorise.smartcampus.network.RemoteException;
@@ -21,8 +20,7 @@ public class GeocoderController {
 	OSMGeocoder geocoder;
 
 	@RequestMapping(method = RequestMethod.GET, produces = "application/json", value = "/location")
-	public @ResponseBody
-	String getFromLocation(HttpServletResponse response,
+	public String getFromLocation(HttpServletResponse response,
 			@RequestParam String latlng,
 			@RequestParam(required = false) Double distance,
 			@RequestParam(required = false) boolean prettyOutput,
@@ -31,9 +29,10 @@ public class GeocoderController {
 			throws RemoteException {
 		try {
 			double[] referenceLocation = extractCoords(latlng);
-			return geocoder.getFromLocation(referenceLocation[0],
-					referenceLocation[1], distance, start, rows, prettyOutput,
-					null);
+			return "redirect:"
+					+ geocoder.getFromLocationUrl(referenceLocation[0],
+							referenceLocation[1], distance, start, rows,
+							prettyOutput, null);
 		} catch (IllegalArgumentException e) {
 			try {
 				response.sendError(HttpServletResponse.SC_BAD_REQUEST,
@@ -46,8 +45,7 @@ public class GeocoderController {
 	}
 
 	@RequestMapping(method = RequestMethod.GET, produces = "application/json", value = "/address")
-	public @ResponseBody
-	String getFromAddress(HttpServletResponse response,
+	public String getFromAddress(HttpServletResponse response,
 			@RequestParam String address,
 			@RequestParam(required = false) String latlng,
 			@RequestParam(required = false) Double distance,
@@ -58,8 +56,10 @@ public class GeocoderController {
 
 		try {
 			double[] referenceLocation = extractCoords(latlng);
-			return geocoder.getFromLocationName(address, referenceLocation,
-					distance, start, rows, prettyOutput, null);
+			return "redirect:"
+					+ geocoder.getFromLocationNameUrl(address,
+							referenceLocation, distance, start, rows,
+							prettyOutput, null);
 		} catch (IllegalArgumentException e) {
 			try {
 				response.sendError(HttpServletResponse.SC_BAD_REQUEST,

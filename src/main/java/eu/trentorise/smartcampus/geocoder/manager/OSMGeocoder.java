@@ -16,7 +16,9 @@
 package eu.trentorise.smartcampus.geocoder.manager;
 
 import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.log4j.Logger;
@@ -44,10 +46,6 @@ public class OSMGeocoder {
 	private double geocodeDistance;
 
 	@Autowired
-	@Value("${geocoder.host}")
-	private String geocoderHost;
-
-	@Autowired
 	@Value("${geocoder.path}")
 	private String geocoderPath;
 
@@ -63,7 +61,7 @@ public class OSMGeocoder {
 	@Value("${geocoder.start}")
 	private Integer defaultStart;
 
-	public String getFromLocationName(String address,
+	public String getFromLocationNameUrl(String address,
 			double[] referenceLocation, Double distance, Integer start,
 			Integer rows, boolean prettyOutput, String token)
 			throws RemoteException {
@@ -116,7 +114,7 @@ public class OSMGeocoder {
 			params.put("d", distance);
 		}
 
-		return execute(geocoderHost, sb.toString(), params, token);
+		return geocoderPath + generateQueryString(params);
 
 	}
 
@@ -152,7 +150,7 @@ public class OSMGeocoder {
 		return q;
 	}
 
-	public String getFromLocation(double lat, double lng, Double distance,
+	public String getFromLocationUrl(double lat, double lng, Double distance,
 			Integer start, Integer rows, boolean prettyOutput, String token)
 			throws RemoteException {
 		String q = "*:*";
@@ -169,6 +167,43 @@ public class OSMGeocoder {
 		} catch (UnsupportedEncodingException e) {
 			LOGGER.error("Error encoding result in ISO-8859-1");
 			return "{}";
+		}
+	}
+
+	private static String generateQueryString(Map<String, Object> parameters) {
+		String queryString = "?";
+		if (parameters != null) {
+			for (String param : parameters.keySet()) {
+				Object value = parameters.get(param);
+				if (value == null) {
+					if (queryString.length() > 1) {
+						queryString += "&";
+					}
+					queryString += param + "=";
+				} else if (value instanceof List) {
+					for (Object v : ((List<?>) value)) {
+						if (queryString.length() > 1) {
+							queryString += "&";
+						}
+						queryString += param + "=" + encodeValue(v.toString());
+					}
+				} else {
+					if (queryString.length() > 1) {
+						queryString += "&";
+					}
+					queryString += param + "=" + encodeValue(value.toString());
+				}
+
+			}
+		}
+		return queryString.length() > 1 ? queryString : "";
+	}
+
+	private static String encodeValue(String value) {
+		try {
+			return URLEncoder.encode(value, "utf8");
+		} catch (UnsupportedEncodingException e) {
+			return value;
 		}
 	}
 }
