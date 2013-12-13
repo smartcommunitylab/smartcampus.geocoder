@@ -1,4 +1,4 @@
-var baseurl = 'http://localhost:8080/core.geocoder/collection1/select';
+var baseurl = 'http://localhost:8080/core.geocoder';
 
 var mapCenter = [ 11.119885, 46.071832 ];
 var defaultZoom = 15;
@@ -41,7 +41,7 @@ function init() {
 					var offset = new OpenLayers.Pixel(-(size.w / 2), -size.h);
 					var i = new OpenLayers.Icon('img/demo/positionMarker.png',
 							size, offset);
-					positionMarker = new OpenLayers.Marker(lonlat,i);
+					positionMarker = new OpenLayers.Marker(lonlat, i);
 					positionLayer.addMarker(positionMarker);
 					var circle = OpenLayers.Geometry.Polygon
 							.createRegularPolygon(
@@ -76,102 +76,70 @@ function init() {
 							.append(removeLink).append(")");
 				}, false);
 			});
-	$('#bsearch')
-			.click(
-					function() {
-						
-						var input = $('#search-field').val();
-						var token = input.split(',');
-						var subtoken = token[0].split(' ');
-						var querystring = '?q=';
-						if (token[0].trim().length == 0) {
-							console.log('Empty research');
-						} else {
-							var queryOnName = 'name:(';
-							var queryOnStreet = 'street:(';
-							$.each(subtoken, function(k, v) {
-								queryOnName += ' +' +v.trim();
-								queryOnStreet += ' +' +v.trim();
-							});
-							queryOnName +=')';
-							queryOnStreet +=')';
-							querystring += encodeURIComponent('+('+queryOnName+' OR '+queryOnStreet+')');
-						}
-						if (token.length == 3 && token[1].trim().length > 0) {
-							querystring += encodeURIComponent(' +housenumber:'
-									+ token[1].trim());
-						}
+	$('#bsearch').click(
+			function() {
 
-						if (token.length == 2 && token[1]
-								&& token[1].trim().length > 0) {
-							if($.isNumeric(token[1].trim())){
-								querystring += encodeURIComponent(' +housenumber:'
-										+ token[1].trim());
-							}else{
-							querystring += encodeURIComponent(' +city:'
-									+ token[1].trim());
-							}
-						}
-						if (token.length == 3 && token[2]
-								&& token[2].trim().length > 0) {
-							querystring += encodeURIComponent(' +city:'
-									+ token[2].trim());
-						}
+				var input = $('#search-field').val();
+				var servicePath = '';
+				var querystring = '';
+				
+				// reverse geocoding
+				if (input.trim().length == 0) {
+					servicePath = '/spring/location';
+					if(!spatial) {
+						alert('Reverse geocoding query NEED a interest position');
+						return;
+					}
+				} else { // geocoding
+					servicePath = '/spring/address';
+					querystring = '?address='
+							+ encodeURIComponent(input.trim());
+				}
+				
+				if (spatial) {
+					var transformedCoords = positionMarker.lonlat.clone()
+							.transform(mapProjection, poiProjection);
+						querystring += (querystring.length > 0 ? '&' : '?') +'latlng='+transformedCoords.lat+ ","+ transformedCoords.lon + '&distance='+($('#interest_radius').val() / 1000);
+					
+					querystring += '&prettyOutput=true';
+				}
+				console.log(querystring);
+				$.ajax({
+					async : true,
+					type : 'GET',
+					headers : {},
+					url : baseurl +servicePath+ querystring,
 
-						querystring += '&wt=json&indent=true';
-						if (spatial) {
-							var transformedCoords = positionMarker.lonlat
-									.clone().transform(mapProjection,
-											poiProjection);
-							querystring += "&fq={!geofilt}&sort=geodist() asc&spatial=true&sfield="
-									+ spatialField
-									+ "&pt="
-									+ transformedCoords.lat
-									+ ","
-									+ transformedCoords.lon
-									+ "&d="
-									+ ($('#interest_radius').val() / 1000);
-						}
-						console.log(querystring);
-						$.ajax({
-							async : true,
-							type : 'GET',
-							headers : {},
-							url : baseurl + querystring,
-
-							success : function(data, textStatus, errorThrown) {
-								//clean all popups
-								$.each(map.popups, function(k, v) {
-									map.removePopup(v);
-								});
-								
-								// clean map
-								resultsLayer.clearMarkers();
-								// display marker in map
-								$.each(data['response']['docs'],
-										function(k, v) {
-											popolateMap(v);
-										});
-								$('#display').text(
-										JSON.stringify(data, null, 2));
-
-								$('#results').text("Element founded: ");
-								var numFound = $('<span>');
-								numFound.addClass('badge');
-								numFound.text(data['response']['numFound']);
-								$('#results').append(numFound);
-								// set map extent to include all the results
-								if (data['response']['numFound'] > 0) {
-									map.zoomToExtent(resultsLayer
-											.getDataExtent());
-								}
-							},
-							error : function(jqXHR, textStatus, errorThrown) {
-								alert('Error during operation: ' + textStatus
-										+ ' ' + errorThrown);
-							}
+					success : function(data, textStatus, errorThrown) {
+						// clean all popups
+						$.each(map.popups, function(k, v) {
+							map.removePopup(v);
 						});
-					});
+
+						// clean map
+						resultsLayer.clearMarkers();
+						// display marker in map
+						$.each(data['response']['docs'], function(k, v) {
+							popolateMap(v);
+						});
+						$('#display').text(JSON.stringify(data, null, 2));
+
+						$('#results').text("Element founded: ");
+						var numFound = $('<span>');
+						numFound.addClass('badge');
+						numFound.text(data['response']['numFound']);
+						$('#results').append(numFound);
+						// set map extent to include all the results
+						if (data['response']['numFound'] > 0) {
+							map.zoomToExtent(resultsLayer.getDataExtent());
+						}
+					},
+					error : function(jqXHR, textStatus, errorThrown) {
+						alert('Error during operation: ' + textStatus + ' '
+								+ errorThrown);
+					}
+				});
+			});
 
 	$('#search-field').keypress(function(evt) {
 		if (evt.which == 13) {
