@@ -162,7 +162,13 @@ public class OSMGeocoder {
 
 	private String execute(String server, String query,
 			Map<String, Object> params, String token) throws RemoteException {
-		return RemoteConnector.getJSON(server, query, token, params);
+		try {
+			// fix because RemoteConnector encode input/output only in UTF-8
+			return new String(RemoteConnector.getJSON(server, query, token,
+					params).getBytes("UTF-8"), "ISO-8859-1");
+		} catch (UnsupportedEncodingException e) {
+			LOGGER.error("Error encoding result in ISO-8859-1");
+			return "{}";
+		}
 	}
-
 }
