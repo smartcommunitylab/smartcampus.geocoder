@@ -101,8 +101,9 @@ function init() {
 							.transform(mapProjection, poiProjection);
 						querystring += (querystring.length > 0 ? '&' : '?') +'latlng='+transformedCoords.lat+ ","+ transformedCoords.lon + '&distance='+($('#interest_radius').val() / 1000);
 					
-					querystring += '&prettyOutput=true';
 				}
+				
+				querystring += (querystring.length > 0 ? '&' : '?') +'rows=3000000&prettyOutput=true';
 				console.log(querystring);
 				$.ajax({
 					async : true,
