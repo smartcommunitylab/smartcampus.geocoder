@@ -20,17 +20,20 @@ public class GeocoderController {
 	@Autowired
 	OSMGeocoder geocoder;
 
-	@RequestMapping(method = RequestMethod.GET, value = "/location")
+	@RequestMapping(method = RequestMethod.GET, produces = "application/json", value = "/location")
 	public @ResponseBody
 	String getFromLocation(HttpServletResponse response,
 			@RequestParam String latlng,
 			@RequestParam(required = false) Double distance,
-			@RequestParam(required = false) boolean prettyOutput)
+			@RequestParam(required = false) boolean prettyOutput,
+			@RequestParam(required = false) Integer rows,
+			@RequestParam(required = false) Integer start)
 			throws RemoteException {
 		try {
 			double[] referenceLocation = extractCoords(latlng);
 			return geocoder.getFromLocation(referenceLocation[0],
-					referenceLocation[1], distance, prettyOutput, null);
+					referenceLocation[1], distance, start, rows, prettyOutput,
+					null);
 		} catch (IllegalArgumentException e) {
 			try {
 				response.sendError(HttpServletResponse.SC_BAD_REQUEST,
@@ -42,19 +45,21 @@ public class GeocoderController {
 		return null;
 	}
 
-	@RequestMapping(method = RequestMethod.GET, value = "/address")
+	@RequestMapping(method = RequestMethod.GET, produces = "application/json", value = "/address")
 	public @ResponseBody
 	String getFromAddress(HttpServletResponse response,
 			@RequestParam String address,
 			@RequestParam(required = false) String latlng,
 			@RequestParam(required = false) Double distance,
-			@RequestParam(required = false) boolean prettyOutput)
+			@RequestParam(required = false) boolean prettyOutput,
+			@RequestParam(required = false) Integer rows,
+			@RequestParam(required = false) Integer start)
 			throws RemoteException {
 
 		try {
 			double[] referenceLocation = extractCoords(latlng);
 			return geocoder.getFromLocationName(address, referenceLocation,
-					distance, prettyOutput, null);
+					distance, start, rows, prettyOutput, null);
 		} catch (IllegalArgumentException e) {
 			try {
 				response.sendError(HttpServletResponse.SC_BAD_REQUEST,

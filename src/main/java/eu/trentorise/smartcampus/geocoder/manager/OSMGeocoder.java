@@ -19,6 +19,7 @@ import java.io.UnsupportedEncodingException;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -37,6 +38,7 @@ import eu.trentorise.smartcampus.network.RemoteException;
 @Component
 public class OSMGeocoder {
 
+	private static final Logger LOGGER = Logger.getLogger(OSMGeocoder.class);
 	@Autowired
 	@Value("${geocoder.distance}")
 	private double geocodeDistance;
@@ -53,33 +55,52 @@ public class OSMGeocoder {
 	@Value("${geocoder.sfield}")
 	private String spatialField;
 
+	@Autowired
+	@Value("${geocoder.rows}")
+	private Integer defaultRows;
+
+	@Autowired
+	@Value("${geocoder.start}")
+	private Integer defaultStart;
+
 	public String getFromLocationName(String address,
-			double[] referenceLocation, Double distance, boolean prettyOutput,
-			String token) throws RemoteException {
+			double[] referenceLocation, Double distance, Integer start,
+			Integer rows, boolean prettyOutput, String token)
+			throws RemoteException {
 		String components = null;
 		try {
 			components = parseAddress(address);
 		} catch (UnsupportedEncodingException e) {
 		}
 
-		return queryLocations(components, referenceLocation, distance,
-				prettyOutput, token);
+		return queryLocations(components, referenceLocation, distance, start,
+				rows, prettyOutput, token);
 	}
 
 	private String queryLocations(String q, double[] referenceLocation,
-			Double distance, boolean prettyOutput, String token)
-			throws RemoteException {
+			Double distance, Integer start, Integer rows, boolean prettyOutput,
+			String token) throws RemoteException {
 
 		StringBuilder sb = new StringBuilder();
 		sb.append(geocoderPath);
 		Map<String, Object> params = new HashMap<String, Object>();
 		params.put("wt", "json");
 
-		params.put("omitHeader", true);
+		params.put("omitHeader", false);
 		if (prettyOutput) {
 			params.put("indent", true);
 		}
 		params.put("q", q);
+
+		if (start == null || start < 0) {
+			start = defaultStart;
+		}
+		if (rows == null || rows < 0) {
+			rows = defaultRows;
+		}
+
+		params.put("start", start);
+		params.put("rows", rows);
 
 		if (referenceLocation != null) {
 			params.put("spatial", true);
@@ -132,10 +153,11 @@ public class OSMGeocoder {
 	}
 
 	public String getFromLocation(double lat, double lng, Double distance,
-			boolean prettyOutput, String token) throws RemoteException {
+			Integer start, Integer rows, boolean prettyOutput, String token)
+			throws RemoteException {
 		String q = "*:*";
-		return queryLocations(q, new double[] { lat, lng }, distance,
-				prettyOutput, token);
+		return queryLocations(q, new double[] { lat, lng }, distance, start,
+				rows, prettyOutput, token);
 	}
 
 	private String execute(String server, String query,
