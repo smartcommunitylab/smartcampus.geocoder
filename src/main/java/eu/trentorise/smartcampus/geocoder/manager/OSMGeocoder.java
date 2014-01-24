@@ -72,12 +72,12 @@ public class OSMGeocoder {
 		}
 
 		return queryLocations(components, referenceLocation, distance, start,
-				rows, prettyOutput, token);
+				rows, prettyOutput, token, true);
 	}
 
 	private String queryLocations(String q, double[] referenceLocation,
 			Double distance, Integer start, Integer rows, boolean prettyOutput,
-			String token) throws RemoteException {
+			String token, boolean ordered) throws RemoteException {
 
 		StringBuilder sb = new StringBuilder();
 		sb.append(geocoderPath);
@@ -112,6 +112,11 @@ public class OSMGeocoder {
 				distance = geocodeDistance;
 			}
 			params.put("d", distance);
+		}
+
+		if (ordered) {
+			params.put("defType", "edismax");
+			params.put("bq", "osm_key:highway^100 osm_value:bus_stop^-10");
 		}
 
 		return geocoderPath + generateQueryString(params);
@@ -155,7 +160,7 @@ public class OSMGeocoder {
 			throws RemoteException {
 		String q = "*:*";
 		return queryLocations(q, new double[] { lat, lng }, distance, start,
-				rows, prettyOutput, token);
+				rows, prettyOutput, token, false);
 	}
 
 	private String execute(String server, String query,
