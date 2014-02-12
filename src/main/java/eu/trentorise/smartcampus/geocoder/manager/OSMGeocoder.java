@@ -103,7 +103,11 @@ public class OSMGeocoder {
 		if (referenceLocation != null) {
 			params.put("spatial", true);
 			params.put("sfield", spatialField);
-			params.put("sort", "geodist() asc");
+			if (ordered) {
+				params.put("sort", "score desc, geodist() asc");
+			} else {
+				params.put("sort", "geodist() asc");
+			}
 			params.put("fq", "{!geofilt}");
 			params.put("pt", referenceLocation[0] + "," + referenceLocation[1]);
 
