@@ -1,4 +1,4 @@
-var baseurl = 'http://localhost:8080/core.geocoder';
+var baseurl = 'https://vas-dev.smartcampuslab.it/core.geocoder';
 
 var mapCenter = [ 11.119885, 46.071832 ];
 var defaultZoom = 15;
