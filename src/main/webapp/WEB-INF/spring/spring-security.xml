@@ -33,6 +33,13 @@ http://www.springframework.org/schema/util http://www.springframework.org/schema
 		<sec:intercept-url pattern="/collection1/admin/**"
 			access="ROLE_ADMIN" />
 	</sec:http>
+	
+	<sec:http pattern="/update"
+		authentication-manager-ref="basic-auth">
+		<sec:http-basic />
+		<sec:intercept-url pattern="/update"
+			access="ROLE_UPDATER" />
+	</sec:http>
 
 
 	<!-- BASIC AUTHENTICATION -->
