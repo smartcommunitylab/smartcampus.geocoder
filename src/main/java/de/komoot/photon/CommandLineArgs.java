@@ -58,5 +58,8 @@ public class CommandLineArgs {
 	
 	@Parameter(names= "-context-path", description = "context path passed")
 	private String contextPath = "core.geocoder";
+	
+	@Parameter(names = "-generate-db-script", description = "generate civic data postgres sql scripts")
+	private boolean generateDBScript = false;
 }
 

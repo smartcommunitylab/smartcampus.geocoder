@@ -5,6 +5,7 @@ import com.beust.jcommander.ParameterException;
 import de.komoot.photon.elasticsearch.Server;
 import de.komoot.photon.nominatim.NominatimConnector;
 import de.komoot.photon.nominatim.NominatimUpdater;
+import de.komoot.photon.utils.CivicSQLScriptsGenerator;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.client.Client;
 import spark.Request;
@@ -36,12 +37,18 @@ public class App {
 			jCommander.usage();
 			return;
 		}
+		
+		if (args.isGenerateDBScript()) {
+			CivicSQLScriptsGenerator civicSQLScriptsGenerator = new CivicSQLScriptsGenerator();
+			civicSQLScriptsGenerator.init();
+			return;
+		}
 
 		if(args.getJsonDump() != null) {
 			startJsonDump(args);
 			return;
 		}
-
+		
 		boolean shutdownES = false;
 		final Server esServer = new Server(args).start();
 		try {
