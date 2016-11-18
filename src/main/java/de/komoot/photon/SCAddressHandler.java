@@ -37,20 +37,30 @@ public class SCAddressHandler<R extends PhotonRequest> extends Route {
 	@Override
 	public Object handle(Request request, Response response) {
 		R photonRequest = null;
+		
 		try {
-			photonRequest = photonRequestFactory.createSCRequest(request);
+			String query = request.queryParams("address");
+			if (query.length() < Constants.MINIMUM_LETTER_THRESHOLD) {
+				return geoJsonConverter.convert(new ArrayList<JSONObject>()).toString();
+			} else {
+				photonRequest = photonRequestFactory.createSCRequest(request);
+			}
 		} catch (BadRequestException e) {
 			JSONObject json = new JSONObject();
 			json.put("message", e.getMessage());
 			halt(e.getHttpStatus(), json.toString());
 		}
 		PhotonRequestHandler<R> handler = requestHandlerFactory.createHandler(photonRequest);
+//		long startTime = System.currentTimeMillis();
 		List<JSONObject> results = handler.handle(photonRequest);
+//		long stopTime = System.currentTimeMillis();
+//		System.out.println(((stopTime - startTime) / 1000) + " secs");
 
 		List<JSONObject> mappedResult = Utils.mapResult(results);
 
 		/** if search by ref position. - start **/
-		double lat = -1, lon = -1;
+		
+		/*double lat = -1, lon = -1;
 		if (request.queryParams("latlng") != null) {
 			String latlng = request.queryParams("latlng");
 			double[] referenceLocation = Utils.extractCoords(latlng);
@@ -64,6 +74,17 @@ public class SCAddressHandler<R extends PhotonRequest> extends Route {
 		}
 		/** if search by ref position. - end **/
 
+		/** remove name from all type civic. start.**/
+		List<JSONObject> filteredList = new ArrayList<JSONObject>();
+		for (JSONObject obj: mappedResult) {
+			if (obj.has(Constants.STRADARIO)) {
+				obj.remove("name");
+			}
+			filteredList.add(obj);
+		}
+		/** remove name from all type civic. end.**/
+		
+		
 		/** pagination - start. **/
 		int page = 0;
 		int count = 20;
@@ -76,11 +97,11 @@ public class SCAddressHandler<R extends PhotonRequest> extends Route {
 			page = Integer.valueOf(request.queryParams("start"));
 		}
 
-		if (!mappedResult.isEmpty() && (page * count) <= mappedResult.size()) {
-			if (((page + 1) * count) <= mappedResult.size()) {
-				paginatedList = mappedResult.subList(page * count, (page + 1) * count);
+		if (!filteredList.isEmpty() && (page * count) <= filteredList.size()) {
+			if (((page + 1) * count) <= filteredList.size()) {
+				paginatedList = filteredList.subList(page * count, (page + 1) * count);
 			} else {
-				paginatedList = mappedResult.subList(page * count, mappedResult.size());
+				paginatedList = filteredList.subList(page * count, filteredList.size());
 			}
 
 		}

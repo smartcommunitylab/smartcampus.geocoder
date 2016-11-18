@@ -24,7 +24,7 @@ public class ReverseElasticsearchSearcher implements ElasticsearchReverseSearche
     public SearchResponse search(QueryBuilder queryBuilder, Integer limit, Point location) {
         TimeValue timeout = TimeValue.timeValueSeconds(7);        
         return client.prepareSearch("photon").
-                setSearchType(SearchType.QUERY_AND_FETCH)
+                setSearchType(SearchType.QUERY_THEN_FETCH)
                             .setQuery(queryBuilder)
                             .addSort(SortBuilders.geoDistanceSort("coordinate").point(location.getY(), location.getX()).order(SortOrder.ASC))
                             .setSize(limit)

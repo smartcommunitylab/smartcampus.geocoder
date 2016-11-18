@@ -27,5 +27,7 @@ public class Constants {
 	public static final String OSM_KEY = "osm_key";
 	public static final String OSM_VALUE = "osm_value";
 	public static final String EXTRA_TAGS = "extratags";
-	public static final String CIVIC_TAG = "civic";
+	public static final String CIVIC_TAG = "houses"; //civic
+	public static final String STRADARIO = "stradario";
+	public static final int MINIMUM_LETTER_THRESHOLD = 4;
 }

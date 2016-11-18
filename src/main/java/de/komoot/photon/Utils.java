@@ -231,6 +231,10 @@ public class Utils {
 					String key = (String) keys.next();
 					if (key.equalsIgnoreCase("extratags")) {
 						Map<String, String> exTags = (Map<String, String>) properties.get(key);
+						if (exTags.containsKey(Constants.STREET) && exTags.containsKey(Constants.HOUSENUMBER)
+								&& exTags.containsKey(Constants.CITY) && exTags.containsKey(Constants.STATE)) {
+							tmp.put(Constants.STRADARIO, true);
+						}
 						for (String mapKey : exTags.keySet()) {
 							tmp.put(mapKey, exTags.get(mapKey));
 						}

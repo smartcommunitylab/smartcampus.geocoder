@@ -49,7 +49,10 @@ public class SCLocationHandler <R extends ReverseRequest> extends Route {
             halt(e.getHttpStatus(), json.toString());
         }
         ReverseRequestHandler<R> handler = requestHandlerFactory.createHandler(photonRequest);
+//        Long startTime = System.currentTimeMillis();
         List<JSONObject> results = handler.handle(photonRequest);
+//        long stopTime = System.currentTimeMillis();
+//		System.out.println(((stopTime - startTime)/1000) + " secs");
         List<JSONObject> mappedResult = Utils.mapResult(results);
         
         Point point = photonRequest.getLocation();
@@ -60,6 +63,16 @@ public class SCLocationHandler <R extends ReverseRequest> extends Route {
             Utils.sortAlgoByDistance(mappedResult, lat, lon);
         }
         
+        /** remove name from all type civic. start.**/
+		List<JSONObject> filteredList = new ArrayList<JSONObject>();
+		for (JSONObject obj: mappedResult) {
+			if (obj.has(Constants.STRADARIO)) {
+				obj.remove("name");
+			}
+			filteredList.add(obj);
+		}
+		/** remove name from all type civic. end.**/
+		
         // pagination.
         int page = 0;
         int count = 10;
@@ -70,11 +83,11 @@ public class SCLocationHandler <R extends ReverseRequest> extends Route {
         	count = Integer.valueOf(request.queryParams("rows"));
         } 
         
-		if (!mappedResult.isEmpty() && (page * count) <= mappedResult.size()) {
-			if (((page + 1) * count) <= mappedResult.size()) {
-				paginatedList = mappedResult.subList(page * count, (page + 1) * count);
+		if (!filteredList.isEmpty() && (page * count) <= filteredList.size()) {
+			if (((page + 1) * count) <= filteredList.size()) {
+				paginatedList = filteredList.subList(page * count, (page + 1) * count);
 			} else {
-				paginatedList = mappedResult.subList(page * count, mappedResult.size());
+				paginatedList = filteredList.subList(page * count, filteredList.size());
 			}
 
 		}

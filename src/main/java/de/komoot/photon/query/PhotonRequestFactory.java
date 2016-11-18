@@ -33,7 +33,7 @@ public class PhotonRequestFactory {
         	throw new BadRequestException(400, "missing search term 'q': /?q=berlin");
         Integer limit;
         try {
-            limit = Integer.valueOf(webRequest.queryParams("rows"));
+            limit = Integer.valueOf(webRequest.queryParams("rows")); // row X start.??
         } catch (NumberFormatException e) {
             limit = 15;
         }

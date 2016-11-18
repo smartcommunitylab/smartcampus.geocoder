@@ -1,7 +1,7 @@
 DO $$
 DECLARE PARENT_PLACE_ID BIGINT := 4740901;
-DECLARE RANK_ADDRESS INT := 19;
-DECLARE SEARCH_ADDRESS INT := 19;
+DECLARE RANK_ADDRESS INT := 18;
+DECLARE SEARCH_ADDRESS INT := 18;
 DECLARE IMPORTANCE INT := 5;
 BEGIN
 
@@ -9,6 +9,7 @@ BEGIN
 
 /*DISTRICTS OF KML (TRENTO)
 Maximum osm_id is     4800712
+Max number of rows in placex is 4659984
 16 districts in total 11111100-11111116 rank 10
 There are 52 administrative boundaries inside osm/nominatim where rank_address is 18.
 we set the importance of district as 5, houses will have something lesser than that for e.g. 1 */

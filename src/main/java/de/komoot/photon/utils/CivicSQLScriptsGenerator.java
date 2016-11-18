@@ -15,6 +15,7 @@ import java.util.Set;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
+import org.apache.commons.lang3.text.WordUtils;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -32,8 +33,8 @@ public class CivicSQLScriptsGenerator {
 	private final static String comuneXMLFile = "civic_web/civici_web.kml";
 	// mapping between kml and osm.
 	private final static String mappingFile = "mapping/kml-osm-mapping.json";
-	private final static String deleteStreetHouseFile = "mapping/delete_street_housenumber.csv";
-	// script output folder.
+	private final static String deleteStreetHouseFile = "mapping/delete_street_housenumber_placeid.csv";
+		// script output folder.
 	private static String scriptOutputFolder = "output-sql-scripts";
 	// district script.
 	private static String districtSQLScript = "/create_district.sql";
@@ -44,17 +45,23 @@ public class CivicSQLScriptsGenerator {
 	// house update.
 	private static File updateHouseNoSQLScriptFile = new File(
 			System.getenv("GEOCODER_DATA_HOME") + System.getProperty("file.separator") + scriptOutputFolder,
-			"update_house_names.sql");
+			"update_house_numbers.sql");
 	// street update.
 	private static File updateStreetNameSQLScriptFile = new File(
 			System.getenv("GEOCODER_DATA_HOME") + System.getProperty("file.separator") + scriptOutputFolder,
 			"update_street_names.sql");
+	// delete duplicates.
+	private static File deleteDuplicateStreets = new File(
+			System.getenv("GEOCODER_DATA_HOME") + System.getProperty("file.separator") + scriptOutputFolder,
+			"delete_duplicate_placex.sql");
 	/** file, folder paths definition end **/
 
 	/** maps, configuration - start. **/
 	private static Map<String, List<Node>> districtPlaceMarksMap = new HashMap<String, List<Node>>();
 	private static Map<String, Integer> districtPlaceIdMap = new HashMap<String, Integer>();
 	private static Map<String, List<String>> deleteStreetHouseMap = new HashMap<String, List<String>>();
+	private static Map<String, List<String>> deleteStreetHouseToNameMap = new HashMap<String, List<String>>();
+	private static Map<String, List<Integer>> deleteStreetHouseToPlaceIdMap = new HashMap<String, List<Integer>>();
 	private static Map<String, List<String>> mapping = new HashMap<String, List<String>>();
 	// new houses unique osm_id range start index.
 	private static int placeId = 11111200;
@@ -81,7 +88,8 @@ public class CivicSQLScriptsGenerator {
 
 	private static ObjectMapper mapper = new ObjectMapper();
 	private static List<String> missingStreet = new ArrayList<String>();
-	private static int skippingCounter = 0;
+	private static int deleteCounter = 0;
+	
 
 	public void init() {
 		try {
@@ -117,45 +125,64 @@ public class CivicSQLScriptsGenerator {
 					deleteStreetHouseMap.put(street, houses);
 				}
 				deleteStreetHouseMap.get(street).add(str[1]);
+				
+				// check for key=street_housenumber
+				String streetHouseKey = street + "_" + str[1];
+				if (deleteStreetHouseToPlaceIdMap.get(streetHouseKey) == null) {
+					ArrayList<Integer> placeIds = new ArrayList<Integer>();
+					deleteStreetHouseToPlaceIdMap.put(streetHouseKey, placeIds);
+				}
+				if (isInteger(str[2]))
+				deleteStreetHouseToPlaceIdMap.get(streetHouseKey).add(Integer.valueOf(str[2].replace("\"", "")));
 			}
-
+			
 			/** Generate sql per kml placemark. **/
 			List<String> linesSql = new ArrayList<String>();
 			List<String> linesUpdateHouseNumberSql = new ArrayList<String>();
 			List<String> linesUpdateStreetNameSql = new ArrayList<String>();
+			List<String> linesDeleteDuplicateSql = new ArrayList<String>();
 
 			Set<String> distinceDistricts = getDistinctDistricts(nList);
-
+			
 			// update house number sql.
-			linesUpdateHouseNumberSql.add("update public.placex as px set housenumber= c.housenumber from (values");
-			for (String district : distinceDistricts) {
-				gnerateSqlPerKmlPlace(district, nList, linesUpdateHouseNumberSql, true, false, false);
-			}
-			linesUpdateHouseNumberSql.add(") as c(housenumber, osm_id) where px.osm_id=c.osm_id");
-
-			// update street name sql.
-			linesUpdateStreetNameSql.add("update public.placex as px set street= c.street from (values");
-			for (String district : distinceDistricts) {
-				gnerateSqlPerKmlPlace(district, nList, linesUpdateStreetNameSql, false, true, false);
-			}
-			linesUpdateStreetNameSql.add(") as c(street, osm_id) where px.osm_id=c.osm_id");
-
-			// create house sql.
+			linesUpdateHouseNumberSql.add("update public.placex as px set housenumber=c.housenumber from (values");
+			linesUpdateStreetNameSql.add("update public.placex as px set street=c.street from (values");
+			linesDeleteDuplicateSql.add("delete from public.placex where place_id in (");
 			linesSql.add("DO $$");
 			linesSql.add("BEGIN");
 			for (String district : distinceDistricts) {
-				gnerateSqlPerKmlPlace(district, nList, linesSql, false, false, true);
+				gnerateSqlPerKmlPlace(district, nList, linesUpdateHouseNumberSql, linesUpdateStreetNameSql, linesSql, linesDeleteDuplicateSql);
 			}
-			linesSql.add("END $$");
+			// replace the last comma.
+			String lastLineUpdateHouse = linesUpdateHouseNumberSql.get(linesUpdateHouseNumberSql.size() - 1);
+			int indHouse = linesUpdateHouseNumberSql.get(linesUpdateHouseNumberSql.size()-1).lastIndexOf(",");
+			if (indHouse >= 0)
+				linesUpdateHouseNumberSql.set(linesUpdateHouseNumberSql.size() - 1, new StringBuilder(lastLineUpdateHouse).replace(indHouse, indHouse + 1, ")").toString());
+			
+			String lastLineUpdateStreet = linesUpdateStreetNameSql.get(linesUpdateStreetNameSql.size() - 1);
+			int indStreet = linesUpdateStreetNameSql.get(linesUpdateStreetNameSql.size()-1).lastIndexOf(",");
+			if (indStreet >= 0)
+				linesUpdateStreetNameSql.set(linesUpdateStreetNameSql.size() - 1, new StringBuilder(lastLineUpdateStreet).replace(indStreet, indStreet + 1, ")").toString());
 
+			String lastLineDeleteStreet = linesDeleteDuplicateSql.get(linesDeleteDuplicateSql.size() - 1);
+			int indDeleteDuplicate = linesDeleteDuplicateSql.get(linesDeleteDuplicateSql.size()-1).lastIndexOf(",");
+			if (indStreet >= 0)
+				linesDeleteDuplicateSql.set(linesDeleteDuplicateSql.size() - 1, new StringBuilder(lastLineDeleteStreet).replace(indDeleteDuplicate, indDeleteDuplicate + 1, ")").toString());
+			
+			
+			linesUpdateHouseNumberSql.add(" as c(housenumber, osm_id) where px.osm_id=c.osm_id");
+			linesUpdateStreetNameSql.add(" as c(street, osm_id) where px.osm_id=c.osm_id");
+			linesSql.add("END $$");
+			
 			// write output scripts.
 			Files.asCharSink(updateHouseNoSQLScriptFile, Charsets.UTF_8).writeLines(linesUpdateHouseNumberSql);
 			Files.asCharSink(updateStreetNameSQLScriptFile, Charsets.UTF_8).writeLines(linesUpdateStreetNameSql);
 			Files.asCharSink(createTrentoHousesSQLScriptFile, Charsets.UTF_8).writeLines(linesSql);
+			Files.asCharSink(deleteDuplicateStreets, Charsets.UTF_8).writeLines(linesDeleteDuplicateSql);
 			ExportResource(districtSQLScript,
 					System.getenv("GEOCODER_DATA_HOME") + System.getProperty("file.separator") + scriptOutputFolder);
 
-			System.out.println("Done... (skipped duplicated houses:" + skippingCounter + ")");
+			System.out.println("Done... (to be deleted duplicated houses:" + deleteCounter + ")");
 
 			if (!missingStreet.isEmpty()) {
 				System.err.println("###################### ATTENTION #########################");
@@ -171,94 +198,110 @@ public class CivicSQLScriptsGenerator {
 	}
 	
 	
-	public static void main(String args[]) {
-
+	private boolean isInteger(String string) {
 		try {
-
-			File jsonFile = new File(
-					System.getenv("GEOCODER_DATA_HOME") + System.getProperty("file.separator") + mappingFile);
-
-			mapping = mapper.readValue(jsonFile, Map.class);
-
-			// read comune xml file.
-			File file = new File(System.getenv("GEOCODER_DATA_HOME") + System.getProperty("file.separator") + comuneXMLFile);
-			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
-			DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
-			Document doc = dBuilder.parse(file);
-			doc.getDocumentElement().normalize();
-
-			NodeList nList = doc.getElementsByTagName("Placemark");
-
-			// read delete-street-housenumber file and create map.
-			List<String> linesDSH = Files.asCharSource(new File(
-					System.getenv("GEOCODER_DATA_HOME") + System.getProperty("file.separator") + deleteStreetHouseFile),
-					Charsets.UTF_8).readLines();
-			for (String line : linesDSH) {
-				String str[] = line.split(",");
-
-				// process street.
-				String street = str[0];
-				street = street.replace("'", "");
-
-				if (deleteStreetHouseMap.get(street) == null) {
-					ArrayList<String> houses = new ArrayList<String>();
-					deleteStreetHouseMap.put(street, houses);
-				}
-				deleteStreetHouseMap.get(street).add(str[1]);
-			}
-
-			/** Generate sql per kml placemark. **/
-			List<String> linesSql = new ArrayList<String>();
-			List<String> linesUpdateHouseNumberSql = new ArrayList<String>();
-			List<String> linesUpdateStreetNameSql = new ArrayList<String>();
-
-			Set<String> distinceDistricts = getDistinctDistricts(nList);
-
-			// update house number sql.
-			linesUpdateHouseNumberSql.add("update public.placex as px set housenumber= c.housenumber from (values");
-			for (String district : distinceDistricts) {
-				gnerateSqlPerKmlPlace(district, nList, linesUpdateHouseNumberSql, true, false, false);
-			}
-			linesUpdateHouseNumberSql.add(") as c(housenumber, osm_id) where px.osm_id=c.osm_id");
-
-			// update street name sql.
-			linesUpdateStreetNameSql.add("update public.placex as px set street= c.street from (values");
-			for (String district : distinceDistricts) {
-				gnerateSqlPerKmlPlace(district, nList, linesUpdateStreetNameSql, false, true, false);
-			}
-			linesUpdateStreetNameSql.add(") as c(street, osm_id) where px.osm_id=c.osm_id");
-
-			// create house sql.
-			linesSql.add("DO $$");
-			linesSql.add("BEGIN");
-			for (String district : distinceDistricts) {
-				gnerateSqlPerKmlPlace(district, nList, linesSql, false, false, true);
-			}
-			linesSql.add("END $$");
-
-			// write output scripts.
-			Files.asCharSink(updateHouseNoSQLScriptFile, Charsets.UTF_8).writeLines(linesUpdateHouseNumberSql);
-			Files.asCharSink(updateStreetNameSQLScriptFile, Charsets.UTF_8).writeLines(linesUpdateStreetNameSql);
-			Files.asCharSink(createTrentoHousesSQLScriptFile, Charsets.UTF_8).writeLines(linesSql);
-			ExportResource(districtSQLScript, System.getenv("GEOCODER_DATA_HOME") + System.getProperty("file.separator") + scriptOutputFolder);
-
-			System.out.println("Done... (skipped duplicated houses:" + skippingCounter + ")");
-
-			if (!missingStreet.isEmpty()) {
-				System.err.println("###################### ATTENTION #########################");
-				for (String missing : missingStreet) {
-					System.out.println("missing street in mapping " + missing);
-				}
-				System.err.println("###################### --------- #########################");
-			}
-
+			Integer.parseInt(string.replace("\"", ""));
+			return true;
 		} catch (Exception e) {
-			e.printStackTrace();
+			return false;
 		}
 	}
 
-	private static void gnerateSqlPerKmlPlace(String district, NodeList nList, List<String> linesSQL,
-			boolean updateHouse, boolean updateStreetName, boolean createHouse) throws IOException {
+
+//	public static void main(String args[]) {
+//
+//		try {
+//
+//			File jsonFile = new File(
+//					System.getenv("GEOCODER_DATA_HOME") + System.getProperty("file.separator") + mappingFile);
+//
+//			mapping = mapper.readValue(jsonFile, Map.class);
+//
+//			// read comune xml file.
+//			File file = new File(System.getenv("GEOCODER_DATA_HOME") + System.getProperty("file.separator") + comuneXMLFile);
+//			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
+//			DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
+//			Document doc = dBuilder.parse(file);
+//			doc.getDocumentElement().normalize();
+//
+//			NodeList nList = doc.getElementsByTagName("Placemark");
+//
+//			// read delete-street-housenumber file and create map.
+//			List<String> linesDSH = Files.asCharSource(new File(
+//					System.getenv("GEOCODER_DATA_HOME") + System.getProperty("file.separator") + deleteStreetHouseFile),
+//					Charsets.UTF_8).readLines();
+//			for (String line : linesDSH) {
+//				String str[] = line.split(",");
+//
+//				// process street.
+//				String street = str[0];
+//				street = street.replace("'", "");
+//
+//				if (deleteStreetHouseMap.get(street) == null) {
+//					ArrayList<String> houses = new ArrayList<String>();
+//					deleteStreetHouseMap.put(street, houses);
+//				}
+//				deleteStreetHouseMap.get(street).add(str[1]);
+//			}
+//
+//			/** Generate sql per kml placemark. **/
+//			List<String> linesSql = new ArrayList<String>();
+//			List<String> linesUpdateHouseNumberSql = new ArrayList<String>();
+//			List<String> linesUpdateStreetNameSql = new ArrayList<String>();
+//			List<String> linesDeleteDuplicate = new ArrayList<String>();
+//
+//			Set<String> distinceDistricts = getDistinctDistricts(nList);
+//
+//			// update house number sql.
+//			linesUpdateHouseNumberSql.add("update public.placex as px set housenumber= c.housenumber from (values");
+//			for (String district : distinceDistricts) {
+//				gnerateSqlPerKmlPlace(district, nList, linesUpdateHouseNumberSql, linesUpdateStreetNameSql, linesSql, linesDeleteDuplicate);
+//			}
+//			linesUpdateHouseNumberSql.add(") as c(housenumber, osm_id) where px.osm_id=c.osm_id");
+//			linesUpdateStreetNameSql.add(") as c(street, osm_id) where px.osm_id=c.osm_id");
+//			linesSql.add("END $$");
+//			
+////			// update street name sql.
+////			CivicSQLScriptsGenerator.resetPlaceIdCounter();
+////			linesUpdateStreetNameSql.add("update public.placex as px set street= c.street from (values");
+////			for (String district : distinceDistricts) {
+////				gnerateSqlPerKmlPlace(district, nList, linesUpdateStreetNameSql, false, true, false);
+////			}
+////			
+////
+////			// create house sql.
+////			resetPlaceIdCounter();
+////			linesSql.add("DO $$");
+////			linesSql.add("BEGIN");
+////			for (String district : distinceDistricts) {
+////				gnerateSqlPerKmlPlace(district, nList, linesSql, false, false, true);
+////			}
+//			
+//
+//			// write output scripts.
+//			resetPlaceIdCounter();
+//			Files.asCharSink(updateHouseNoSQLScriptFile, Charsets.UTF_8).writeLines(linesUpdateHouseNumberSql);
+//			Files.asCharSink(updateStreetNameSQLScriptFile, Charsets.UTF_8).writeLines(linesUpdateStreetNameSql);
+//			Files.asCharSink(createTrentoHousesSQLScriptFile, Charsets.UTF_8).writeLines(linesSql);
+//			ExportResource(districtSQLScript, System.getenv("GEOCODER_DATA_HOME") + System.getProperty("file.separator") + scriptOutputFolder);
+//
+//			System.out.println("Done... (skipped duplicated houses:" + skippingCounter + ")");
+//
+//			if (!missingStreet.isEmpty()) {
+//				System.err.println("###################### ATTENTION #########################");
+//				for (String missing : missingStreet) {
+//					System.out.println("missing street in mapping " + missing);
+//				}
+//				System.err.println("###################### --------- #########################");
+//			}
+//
+//		} catch (Exception e) {
+//			e.printStackTrace();
+//		}
+//	}
+
+	private static void gnerateSqlPerKmlPlace(String district, NodeList nList, List<String> linesUpdateHouseSQL,
+			List<String> linesUpdateStreetNameSQL, List<String> linesSQL, List<String> deleteSQL) throws IOException {
 
 		List<Node> placeMarks = new ArrayList<Node>();
 
@@ -318,7 +361,7 @@ public class CivicSQLScriptsGenerator {
 						name = eElement.getElementsByTagName("name").item(0).getTextContent();
 					String houseNumber = "";
 					if (simpleDataNodes.item(0) != null)
-						houseNumber = simpleDataNodes.item(0).getTextContent();
+						houseNumber = simpleDataNodes.item(2).getTextContent();
 					String street = "";
 					if (simpleDataNodes.item(3) != null) {
 						street = simpleDataNodes.item(3).getTextContent().replaceAll("^\"|\"$", "");
@@ -328,17 +371,29 @@ public class CivicSQLScriptsGenerator {
 						// System.out.println("stop");
 						// }
 						// skip existing street+housenumber matches in osm.
-						boolean duplicate = false;
+						boolean delete = false;
 						if (mapping.containsKey(street)) {
 
+//							if (street.contains("piave")) {
+//								System.err.println("debug");
+//							}
 							for (String possibleStreet : mapping.get(street)) {
 								if (deleteStreetHouseMap.containsKey("\"" + possibleStreet + "\"")) {
 									if (deleteStreetHouseMap.get("\"" + possibleStreet + "\"")
 											.contains("\"" + houseNumber + "\"")) {
-										// System.out.println("SKIPPING - " +
-										// street + " " + houseNumber);
-										duplicate = true;
-										break;
+										// check further if this street+housenumber map has empty name
+										String streetHouseKey = "\"" + possibleStreet + "\"" + "_" + "\"" + houseNumber + "\"";
+										if (deleteStreetHouseToPlaceIdMap.containsKey(streetHouseKey)) {
+											delete = true;
+											for (Integer deletePlaceId: deleteStreetHouseToPlaceIdMap.get(streetHouseKey)){
+												deleteSQL.add(deletePlaceId + ",");
+											}
+											break;
+										} else {
+											if (!missingStreet.contains(street)) {
+												missingStreet.add(street);
+											}
+										}
 									}
 								}
 							}
@@ -349,9 +404,9 @@ public class CivicSQLScriptsGenerator {
 
 						}
 
-						if (duplicate) {
-							skippingCounter++;
-							continue;
+						if (delete) {
+							deleteCounter++;
+//							continue;
 						}
 
 					}
@@ -374,43 +429,26 @@ public class CivicSQLScriptsGenerator {
 							coordinatesString = coordinates[0] + " " + coordinates[1];
 							street = street.replaceAll("\"", "");
 
-							if (updateHouse)
-								mapQuery = mapQuery + "('" + houseNumber + "'," + placeId + "),";
-							else if (updateStreetName)
-								mapQuery = mapQuery + "('"
-										+ CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, street) + "',"
-										+ placeId + "),";
-							else {
-								String temp = ("insert into public.placex "
-										+ "(place_id,osm_id,osm_type,class,type,name,extratags,parent_place_id,isin,postcode,country_code,geometry,centroid,geometry_sector) "
-										+ "VALUES(" + placeId + "," + placeId + ",'N'," + "'building','civic',"
+							linesUpdateHouseSQL.add("('" + houseNumber + "'," + placeId + "),");
+							linesUpdateStreetNameSQL.add("('" + WordUtils.capitalize(street) + "'," + placeId + "),");
+							linesSQL.add("insert into public.placex "
+										+ "(place_id,osm_id,osm_type,class,type,name,extratags,parent_place_id,isin,postcode,country_code,geometry,centroid,geometry_sector,rank_search,rank_address) "
+										+ "VALUES(" + placeId + "," + placeId + ",'N'," + "'place','house',"
 										+ "'\"name\"=>\""
-										+ CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, street) + " "
+										+ WordUtils.capitalize(street) + " "
 										+ houseNumber + "\"',"
 										+ "'\"state\"=>\"Trentino-Alto Adige/Sudtirol\",\"city\"=>\"Trento\",\"street\"=>\""
-										+ CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, street)
+										+ WordUtils.capitalize(street)
 										+ "\",\"housenumber\"=>\"" + houseNumber + "\"'," + parentPlaceId + ",'" + isIn
 										+ "'," + cap + ",'it',ST_GeomFromText('POINT(" + coordinatesString
 										+ ")', 4326)," + "ST_Centroid(ST_GeomFromText('POINT(" + coordinatesString
-										+ ")', 4326)),28491461);");
-								linesSQL.add(temp);
-							}
+										+ ")', 4326)),28491461,28, 28);");
 							placeId++;
 
 						}
 					}
 				}
 		}
-
-		// replace the last comma.
-		if (!createHouse) {
-			int ind = mapQuery.lastIndexOf(",");
-			if (ind >= 0)
-				mapQuery = new StringBuilder(mapQuery).replace(ind, ind + 1, ")").toString();
-		}
-
-		linesSQL.add(mapQuery);
-
 	}
 
 	private static Set<String> getDistinctDistricts(NodeList nList) {
@@ -472,5 +510,9 @@ public class CivicSQLScriptsGenerator {
         }
 
     }
+    
+    public static void resetPlaceIdCounter() {
+    	placeId = 11111200;
+    };
 
 }
